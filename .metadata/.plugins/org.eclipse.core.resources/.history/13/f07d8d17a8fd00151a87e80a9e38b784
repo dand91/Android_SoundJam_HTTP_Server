@@ -1,0 +1,95 @@
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Map;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+
+
+public class MusicAppHandler implements HttpHandler {
+	
+		private Database db;
+	
+        public MusicAppHandler() {
+
+        	initiateDatabase();
+        }
+
+		@Override
+        public void handle(HttpExchange t) throws IOException {  
+            
+        	Map params = (Map)t.getAttribute("parameters");
+            
+        	String info = (String)params.get("info");
+        	
+        	System.out.println("Received: <" + info + ">");
+        	
+        	
+        	if(info != null){
+        		
+ 
+        	StringBuilder sb = new StringBuilder();
+       
+            String[] result = info.split(":");
+
+            for(String resultString : result){
+
+                String[] subresult = resultString.split("-");
+               
+                System.out.println("Saving: " + subresult[0] + " " + subresult[1]);
+                db.saveData(subresult[0], subresult[1]);
+            }
+        	
+            String response = "";
+
+            	ArrayList<String> responsList = db.getData();
+            	
+            	for(int i = 0; i < responsList.size() ; i++){
+            		
+            		response = response + responsList.get(i) + ":";
+            		
+            	}
+            		        	System.out.println("Sending respons");
+
+        	
+        	 t.sendResponseHeaders(200, response.length());
+	            OutputStream os = t.getResponseBody();
+        	
+            os.write(response.getBytes());
+            os.close();
+            
+        	}else{
+        		
+        		String response = "Error";
+        		
+        		t.sendResponseHeaders(200, response.length());
+ 	            OutputStream os = t.getResponseBody();
+         	
+             os.write(response.getBytes());
+             os.close();
+             
+        	}
+        }
+		
+
+		private void initiateDatabase(){
+				
+			    Database.initiate();
+
+			      try {
+			    	  
+			        this.db = Database.getInstance();
+			        if(this.db.openConnection("root", "Taylorutveckling")){
+			        	
+						System.out.println("DatabaseInitiate: Database initiated.");
+			        }
+
+			  } catch (Exception e) {
+				  
+					System.out.println("DatabaseInitiate: Unable to initiate database.");
+
+			    e.printStackTrace();
+			  }
+		}
+    }

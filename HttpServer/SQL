@@ -1,0 +1,9 @@
+CREATE TABLE DataTable(
+
+data VARCHAR(30),
+volume VARCHAR(30),
+groupName VARCHAR(20) NOT NULL,
+instrumentName VARCHAR(20) NOT NULL,
+PRIMARY KEY(instrumentName,groupName)
+
+);

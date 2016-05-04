@@ -1,0 +1,246 @@
+package Handler;
+import SendClass;
+import SendClassList;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Map;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.Marshaller;
+
+import Database.Database;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
+
+public class MusicAppHandler implements HttpHandler {
+
+	private Database db;
+
+	public MusicAppHandler() {
+
+		initiateDatabase();
+	}
+
+	@Override
+	public void handle(HttpExchange t) throws IOException {
+
+		InputStreamReader isr = new InputStreamReader(t.getRequestBody(),
+				"utf-8");
+		BufferedReader br = new BufferedReader(isr);
+
+		int b;
+		StringBuilder buf = new StringBuilder();
+		while ((b = br.read()) != -1) {
+			buf.append((char) b);
+		}
+
+		br.close();
+		String request = buf.toString();
+		Date date = new Date();
+		System.out.println("\n" + date.toString() + " Received: \n");
+		System.out.println(request);
+		
+		SendClassList scl = null;
+
+		try {
+
+			JAXBContext jaxbContext = JAXBContext
+					.newInstance(SendClassList.class);
+			Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
+			scl = (SendClassList) jaxbUnmarshaller.unmarshal(new StringReader(
+					request));
+
+		} catch (JAXBException e) {
+
+			System.out.println(date.toString() + " Error when converting XML");
+
+		}
+
+		if (scl != null) {
+
+			String groupName = scl.getSendClassList().get(0).getGroupName();
+
+			if (!groupName.equals("noName")) {
+
+				if (db.isValidGroup(groupName)) {
+
+					setData(scl);
+					getData(t,scl);
+
+				} else {
+
+					setData(scl);
+					sendError(t, 200);
+				}
+
+			} else {
+
+				sendError(t, 206);
+				System.out.println(date.toString() + " No group initiated");
+
+			}
+
+		} else {
+
+			sendError(t, 204);
+			System.out.println(date.toString() + " XML class is null");
+
+		}
+	}
+
+	public void sendError(HttpExchange t, int code) {
+
+		Date date = new Date();
+
+		System.out.println("\n" + date.toString() + " Sending error respons: "
+				+ code);
+
+		try {
+			
+			String response = "";
+			
+			t.sendResponseHeaders(code, response.length());
+			OutputStream os = t.getResponseBody();
+			os.write(response.getBytes());
+			os.close();
+
+		} catch (IOException e) {
+
+			System.out.println(date.toString() + "Error when sending response");
+		}
+
+	}
+
+	public void setData(SendClassList scl) {
+
+		boolean hasValidData = false;
+		Date date = new Date();
+
+		 String group = null;
+		 String info = null;
+		 String instrument = null;
+		 String volume = null;
+		
+		for (int i = 0; i < scl.getSendClassList().size(); i++) {
+
+			SendClass tempSC = scl.getSendClassList().get(i);
+			info = tempSC.getData();
+			instrument = tempSC.getInstrumentName();
+			volume = tempSC.getVolume();
+			group = tempSC.getGroupName();
+
+			if (!info.equals("N/I") && !instrument.equals("N/I")
+					&& !volume.equals("N/I") && !group.equals("N/I")) {
+
+				
+				hasValidData = db.saveData(group, instrument, info, volume);
+
+			}
+		}
+
+			if(hasValidData){
+				
+				System.out.println(date.toString() + " Data set for group: " + group);
+
+			}else{
+				
+				System.out.println(date.toString() + " Data not set");
+
+			}
+	}
+
+	public void getData(HttpExchange t,SendClassList scl) throws IOException {
+
+		
+		SendClassList sendList = db.getData(scl.getSendClassList().get(0).getGroupName());
+		Date date = new Date();
+		boolean hasValidData = false;
+
+		String response = "";
+
+		if (!sendList.getSendClassList().isEmpty()) {
+
+			hasValidData = true;
+			
+			JAXBContext jaxbContext;
+
+			try {
+
+				jaxbContext = JAXBContext.newInstance(SendClassList.class);
+
+				Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
+
+				jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT,
+						true);
+
+				jaxbMarshaller.marshal(sendList, System.out);
+				StringWriter writer = new StringWriter();
+				jaxbMarshaller.marshal(sendList, writer);
+
+				response = writer.toString();
+
+			} catch (JAXBException e) {
+
+				System.out.println(date.toString() + " Error when converting XML");
+
+			}
+
+		}
+
+		try {
+
+			t.sendResponseHeaders(200, response.length());
+			OutputStream os = t.getResponseBody();
+			System.out.println("\n" + date.toString() + " Sending: \n");
+			System.out.println(response);
+
+			os.write(response.getBytes());
+			os.close();
+
+		} catch (IOException e) {
+
+			System.out.println(date.toString() + " Error when sending response");
+
+		}
+		
+		if(hasValidData){
+			System.out.println(date.toString() + " Data found.");
+		}else{
+			System.out.println(date.toString() + " Data not found.");
+		}
+
+	}
+
+	public void initiateDatabase() {
+
+		Date date = new Date();
+
+		try {
+
+			Database.initiate();
+			db = Database.getInstance();
+			if (db.openConnection()) {
+				System.out.println(date.toString() + " Database started");
+			} else {
+				System.out.println(date.toString()
+						+ " Unable to start database");
+			}
+		} catch (Exception e) {
+			System.out.println(date.toString() + e.getMessage());
+			System.exit(1);
+		}
+	}
+}

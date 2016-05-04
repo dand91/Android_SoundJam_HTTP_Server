@@ -1,0 +1,182 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Map;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.Marshaller;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
+
+public class MusicAppHandler implements HttpHandler {
+
+	private Database db;
+	private String group = null;
+	private String info = null;
+	private String instrument = null;
+	private String volume = null;
+
+	public MusicAppHandler() {
+
+		initiateDatabase();
+	}
+
+	@Override
+	public void handle(HttpExchange t) throws IOException {
+
+		InputStreamReader isr = new InputStreamReader(t.getRequestBody(),
+				"utf-8");
+		BufferedReader br = new BufferedReader(isr);
+
+		int b;
+		StringBuilder buf = new StringBuilder();
+		while ((b = br.read()) != -1) {
+			buf.append((char) b);
+		}
+
+		br.close();
+		String request = buf.toString();
+		Date date = new Date();
+		System.out.println("\n" + date.toString() + " Received: \n\n\n");
+		System.out.println(request);
+		SendClassList scl = null;
+
+		try {
+
+			JAXBContext jaxbContext = JAXBContext
+					.newInstance(SendClassList.class);
+			Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
+			scl = (SendClassList) jaxbUnmarshaller.unmarshal(new StringReader(
+					request));
+
+		} catch (JAXBException e) {
+			
+			System.out.println("Error when converting XML");
+			
+		}
+
+		if (scl != null) {
+			
+			if(db.isValidGroup(scl.getSendClassList().get(0).getGroupName())){
+
+			for (int i = 0; i < scl.getSendClassList().size(); i++) {
+
+				SendClass tempSC = scl.getSendClassList().get(i);
+				info = tempSC.getData();
+				instrument = tempSC.getInstrumentName();
+				volume = tempSC.getVolume();
+				group = tempSC.getGroupName();
+
+				if (!info.equals("N/I") && !instrument.equals("N/I")
+						&& !volume.equals("N/I") && !group.equals("N/I")) {
+
+						db.saveData(group, instrument, info, volume);
+
+				}
+			}
+
+			getData(t);
+			
+			}else{
+				
+				sendError(t,206);
+				System.out.println("Error when finding group name");
+
+			}
+
+		} else {
+
+			sendError(t,204);
+			System.out.println("Error when converting XML");
+
+		}
+	}
+	
+	public void sendError(HttpExchange t,int code){
+		
+		Date date = new Date();
+
+		System.out.println("\n" + date.toString() + " Sending error respons: " + code);
+
+		try {
+			
+			t.sendResponseHeaders(code,0);
+		
+		} catch (IOException e) {
+			
+			System.out.println("Error when sending response");
+		}
+		
+	}
+
+	public void getData(HttpExchange t) throws IOException {
+
+		SendClassList sendList = db.getData(group);
+
+		JAXBContext jaxbContext;
+
+		try {
+
+			jaxbContext = JAXBContext.newInstance(SendClassList.class);
+
+			Marshaller jaxbMarshaller = jaxbContext.createMarshaller();
+
+			jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+
+			jaxbMarshaller.marshal(sendList, System.out);
+			StringWriter writer = new StringWriter();
+			jaxbMarshaller.marshal(sendList, writer);
+
+			String response = writer.toString();
+
+			t.sendResponseHeaders(200, response.length());
+			OutputStream os = t.getResponseBody();
+			Date date = new Date();
+			System.out.println(date.toString() + " Sending: \n\n\n");
+			System.out.println(response);
+
+			os.write(response.getBytes());
+			os.close();
+
+		} catch (JAXBException e) {
+			
+			System.out.println("Error when converting XML");
+			
+		}catch (IOException e) {
+			
+			System.out.println("Error when sending response");
+
+		}
+	}
+		
+
+		public void initiateDatabase() {
+
+			Date date = new Date();
+			
+			try {
+				
+				Database.initiate();
+				db = Database.getInstance();
+				if (db.openConnection()) {
+					System.out.println(date.toString() + " Database started");
+				} else {
+					System.out.println(date.toString() + " Unable to start database");
+				}
+			} catch (Exception e) {
+				System.out.println(e.getMessage());
+				System.exit(1);
+			}
+		}
+    }
