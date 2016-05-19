@@ -1,9 +1,17 @@
 CREATE TABLE DataTable(
 
-data VARCHAR(30),
-volume VARCHAR(30),
+data VARCHAR(30) NOT NULL,
+volume VARCHAR(30) NOT NULL,
 groupName VARCHAR(20) NOT NULL,
 instrumentName VARCHAR(20) NOT NULL,
 PRIMARY KEY(instrumentName,groupName)
+
+);
+
+CREATE TABLE BPMTable(
+
+groupName VARCHAR(20) NOT NULL,
+BPM INT NOT NULL,
+PRIMARY KEY(groupName)
 
 );
