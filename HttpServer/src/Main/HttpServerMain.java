@@ -28,7 +28,7 @@ public class HttpServerMain {
             while (addressList.hasMoreElements()) {
                 InetAddress i = (InetAddress) addressList.nextElement();
                 list.add(i);
-                System.out.println(k + ": " + i.getHostAddress());
+                System.out.println(">" + k + ": " + i.getHostAddress());
                 k++;
             }
         }
@@ -40,21 +40,21 @@ public class HttpServerMain {
 
             try {
 
-                System.out.println("Which address? Input number.");
+                System.out.println(">Which address? Input number.");
                 Scanner desc = new Scanner(System.in);
                 nbr = desc.nextInt();
-                System.out.println("Which port? Input number.");
+                System.out.println(">Which port? Input number.");
                 desc = new Scanner(System.in);
                 port = desc.nextInt();
 
             } catch (Exception e1) {
 
-                System.out.println("Not a valid input.");
+                System.out.println(">Not a valid input.");
 
             }
         }
 
-        System.out.println("Initiating server");
+        System.out.println(">Initiating server");
 
         HttpServer server = HttpServer.create(new InetSocketAddress(list.get(nbr), port), 0);
         HttpContext context = server.createContext("/test", new MusicAppHandler());
